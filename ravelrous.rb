@@ -31,6 +31,10 @@ ravelrites  = {}
 seed_users   = ["zeroeth"]
 search_depth = 1
 
+# Step 1: Visit each friend (and their friends) in a nested loop, storing all
+# in ravelrites (by only visiting <name>/friends/people
+#
+# Step 2: (optional) gather profile information
 
 # GET PROFILE
 page = agent.get "http://www.ravelry.com/people/zeroeth"
