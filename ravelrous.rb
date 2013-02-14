@@ -13,12 +13,22 @@ require 'pry'
 
 ### Login ################################
 
-agent = Mechanize.new
-agent.get "http://www.ravelry.com/"
 
-agent.page.form["user[login]"]    = 'zeroeth'
-agent.page.form["user[password]"] = 'w333333'
-agent.page.form.submit
+class Ravelry
+  @@site = nil
+
+  def self.site
+    @@site ||= Mechanize.new
+  end
+
+  def self.login
+    site.get "http://www.ravelry.com/"
+
+    site.page.form["user[login]"]    = 'zeroeth'
+    site.page.form["user[password]"] = 'w333333'
+    site.page.form.submit
+  end
+end
 
 
 
@@ -29,23 +39,29 @@ class Ravelrite
   attr_accessor :number_of_posts, :number_of_friends, :number_of_projects
   attr_accessor :friends
 
-  attr_accessor :processed
+  attr_accessor :profile_retrieved
+
+  @@ravelrites = {}
+
 
   def initialize
-    self.processed = false
+    self.profile_retrieved = false
     self.friends = []
   end
-end
 
-
-
-### List #################################
-
-class RavelriteList
-  @@ravelrites = {}
 
   def self.find_or_initialize(username)
     @@ravelrites[username] ||= Ravelrite.new
+  end
+
+
+  def self.find(username)
+    @@ravelrites[username] || raise("Can't find #{username} in list")
+  end
+
+
+  def self.list
+    @@ravelrites.values
   end
 end
 
@@ -61,22 +77,29 @@ class FriendCollector
     self.search_depth = 1
   end
 
+
   def friends_of(username, current_depth = 1)
-    page = agent.get "http://www.ravelry.com/people/#{username}/friends/people"
+    page = Ravelry.site.get "http://www.ravelry.com/people/#{username}/friends/people"
     friend_links = page.parser.css("#friends_panel .avatar_bubble a")
+
+    ravelrite = Ravelrite.find_or_initialize(username)
+    ravelrite.name = username
 
     friend_links.each do |friend_link|
       name = friend_link["href"].gsub("/people/","")
 
-      friend = ravelrites[name]
-      if friend == nil
-        friend = Ravelrite.new
-        friend.name = name
+      friend = Ravelrite.find_or_initialize(name)
+      friend.name = name
 
-        ravelrites[name] = friend
-      end
+      ravelrite.friends << friend
     end
+  end
 
+
+  def go
+    self.seeds.each do |username|
+      friends_of username
+    end
   end
 end
 
@@ -86,7 +109,7 @@ end
 
 class ProfileCollector
   def profile_of(username)
-    page = agent.get "http://www.ravelry.com/people/zeroeth"
+    page = Ravelry.site.get "http://www.ravelry.com/people/zeroeth"
     doc  = page.parser
 
     ravelrite = Ravelrite.find_or_initialize(username)
@@ -96,5 +119,48 @@ class ProfileCollector
   end
 end
 
+
+
+### Graph ################################
+
+class GraphvizDotfile
+  attr_accessor :file
+
+  def initialize
+    self.file = File.open("friendships.dot", "w")
+  end
+
+  def friendship_of(username)
+    ravelrite = Ravelrite.find username
+
+    ravelrite.friends.each do |friend|
+      file.puts "#{ravelrite.name} -> #{friend.name}"
+    end
+  end
+
+
+  def generate
+    file.puts "digraph {"
+
+    Ravelrite.list.each do |ravelrite|
+      puts "writing #{ravelrite.name} friends (#{ravelrite.friends.count})"
+      friendship_of(ravelrite.name)
+    end
+
+    file.puts "}"
+
+    file.close
+  end
+end
+
+
+
+### Run ##################################
+
+Ravelry.login
+
+FriendCollector.new.go
+
+GraphvizDotfile.new.generate
 
 binding.pry
