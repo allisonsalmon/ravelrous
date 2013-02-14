@@ -120,10 +120,11 @@ end
 
 class ProfileCollector
   def profile_of(username)
-    page = Ravelry.site.get "http://www.ravelry.com/people/zeroeth"
+    page = Ravelry.site.get "http://www.ravelry.com/people/#{username}"
     doc  = page.parser
 
     ravelrite = Ravelrite.find_or_initialize(username)
+    ravelrite.name = username
     ravelrite.number_of_projects = doc.css(".projects_option a"   ).last.text.match(/\d+/)
     ravelrite.number_of_friends  = doc.css(".friends_option a"    ).last.text.match(/\d+/)
     ravelrite.number_of_posts    = doc.css(".forum_posts_option a").last.text.match(/\d+/)
