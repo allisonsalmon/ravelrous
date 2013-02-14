@@ -78,12 +78,15 @@ class FriendCollector
   end
 
 
-  def friends_of(username, current_depth = 1)
+  def friends_of(username, current_depth = 0)
+    puts "#{'-'*current_depth} getting friends of #{username}"
+
     page = Ravelry.site.get "http://www.ravelry.com/people/#{username}/friends/people"
     friend_links = page.parser.css("#friends_panel .avatar_bubble a")
 
     ravelrite = Ravelrite.find_or_initialize(username)
     ravelrite.name = username
+
 
     friend_links.each do |friend_link|
       name = friend_link["href"].gsub("/people/","")
@@ -92,6 +95,9 @@ class FriendCollector
       friend.name = name
 
       ravelrite.friends << friend
+
+      # RECURSION ZONE
+      friends_of(friend.name, current_depth + 1) if current_depth < search_depth
     end
   end
 
@@ -143,13 +149,15 @@ class GraphvizDotfile
     file.puts "digraph {"
 
     Ravelrite.list.each do |ravelrite|
-      puts "writing #{ravelrite.name} friends (#{ravelrite.friends.count})"
+      puts "#{ravelrite.name} (#{ravelrite.friends.count})" if ravelrite.friends.count > 0
       friendship_of(ravelrite.name)
     end
 
     file.puts "}"
 
     file.close
+    
+    puts "friendship.dot written"
   end
 end
 
@@ -163,4 +171,4 @@ FriendCollector.new.go
 
 GraphvizDotfile.new.generate
 
-binding.pry
+# binding.pry
