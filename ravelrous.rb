@@ -72,11 +72,12 @@ end
 ### Friend ###############################
 
 class FriendCollector
-  attr_accessor :seeds, :search_depth
+  attr_accessor :seeds, :search_depth, :profile_collector
 
   def initialize
     self.seeds = ["CodeCrafter"]
     self.search_depth = 1
+    self.profile_collector = ProfileCollector.new
   end
 
 
@@ -86,22 +87,34 @@ class FriendCollector
     ravelrite = Ravelrite.find_or_initialize(username)
     ravelrite.name = username
     ravelrite.processing_friends = true
+    if ravelrite.profile_retrieved
+      page_count = (ravelrite.number_of_friends - ravelrite.number_of_friends%30)/30 + 1
+    else
+      page_count = 1
+    end
 
-    page = Ravelry.site.get "http://www.ravelry.com/people/#{username}/friends/people"
-    friend_links = page.parser.css("#friends_panel .avatar_bubble a")
+    puts username + ' has pages of friends: ' + page_count.to_s
 
-    friend_links.each do |friend_link|
-      name = friend_link["href"].gsub("/people/","")
+    (1..page_count).each do |count|
+      page = Ravelry.site.get "http://www.ravelry.com/people/#{username}/friends/people?page="+count.to_s
+      friend_links = page.parser.css("#friends_panel .avatar_bubble a")
 
-      friend = Ravelrite.find_or_initialize(name)
-      friend.name = name
+      friend_links.each do |friend_link|
+        name = friend_link["href"].gsub("/people/","")
 
-      ravelrite.friends << friend
+        friend = Ravelrite.find_or_initialize(name)
+        friend.name = name
 
-      # -- RECURSION ZONE -- #
-      # Outer recursion already looping over this person
-      unless friend.processing_friends
-        friends_of(friend.name, current_depth + 1) if current_depth < search_depth
+        ravelrite.friends << friend
+
+        # -- RECURSION ZONE -- #
+        # Outer recursion already looping over this person
+        unless friend.processing_friends
+          unless friend.name == nil
+            self.profile_collector.profile_of friend.name if current_depth < search_depth
+            friends_of(friend.name, current_depth + 1) if current_depth < search_depth
+          end
+        end
       end
     end
   end
@@ -109,6 +122,7 @@ class FriendCollector
 
   def go
     self.seeds.each do |username|
+      self.profile_collector.profile_of username
       friends_of username
     end
   end
@@ -126,8 +140,11 @@ class ProfileCollector
     ravelrite = Ravelrite.find_or_initialize(username)
     ravelrite.name = username
     ravelrite.number_of_projects = doc.css(".projects_option a"   ).last.text.match(/\d+/)
-    ravelrite.number_of_friends  = doc.css(".friends_option a"    ).last.text.match(/\d+/)
+    ravelrite.number_of_friends  = doc.css(".friends_option a"    ).last.text.match(/\d+/).to_a.first.to_i
     ravelrite.number_of_posts    = doc.css(".forum_posts_option a").last.text.match(/\d+/)
+    ravelrite.profile_retrieved   = true
+
+    puts 'retrieved profile of ' + username
   end
 end
 
