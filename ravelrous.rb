@@ -79,7 +79,7 @@ class FriendCollector
 
 
   def friends_of(username, current_depth = 0)
-    puts "#{'-'*current_depth} getting friends of #{username}"
+    puts "#{'-'*(current_depth+1)} getting friends of #{username}"
 
     page = Ravelry.site.get "http://www.ravelry.com/people/#{username}/friends/people"
     friend_links = page.parser.css("#friends_panel .avatar_bubble a")
@@ -156,7 +156,7 @@ class GraphvizDotfile
     file.puts "}"
 
     file.close
-    
+
     puts "friendship.dot written"
   end
 end
