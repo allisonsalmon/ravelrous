@@ -58,7 +58,7 @@ class Ravelrite
 
 
   def self.find(username)
-    @@ravelrites[username] || raise("Can't find #{username} in list")
+    @@ravelrites[username] || nil #raise("Can't find #{username} in list")
   end
 
 
@@ -76,7 +76,7 @@ class FriendCollector
 
   def initialize
     self.seeds = ["CodeCrafter"]
-    self.search_depth = 1
+    self.search_depth = 1 
     self.profile_collector = ProfileCollector.new
   end
 
@@ -102,17 +102,23 @@ class FriendCollector
       friend_links.each do |friend_link|
         name = friend_link["href"].gsub("/people/","")
 
-        friend = Ravelrite.find_or_initialize(name)
-        friend.name = name
+        if current_depth == 0
+          friend = Ravelrite.find_or_initialize(name)
+          friend.name = name
+        else
+          friend = Ravelrite.find(name)
+        end
 
-        ravelrite.friends << friend
+        if friend != nil
+          ravelrite.friends << friend
 
-        # -- RECURSION ZONE -- #
-        # Outer recursion already looping over this person
-        unless friend.processing_friends
-          unless friend.name == nil
-            self.profile_collector.profile_of friend.name if current_depth < search_depth
-            friends_of(friend.name, current_depth + 1) if current_depth < search_depth
+          # -- RECURSION ZONE -- #
+          # Outer recursion already looping over this person
+          unless friend.processing_friends
+            unless friend.name == nil
+              self.profile_collector.profile_of friend.name if current_depth < search_depth
+              friends_of(friend.name, current_depth + 1) if current_depth < search_depth
+            end
           end
         end
       end
