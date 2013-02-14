@@ -40,12 +40,14 @@ class Ravelrite
   attr_accessor :friends
 
   attr_accessor :profile_retrieved
+  attr_accessor :processing_friends
 
   @@ravelrites = {}
 
 
   def initialize
-    self.profile_retrieved = false
+    self.profile_retrieved  = false
+    self.processing_friends = false
     self.friends = []
   end
 
@@ -81,12 +83,12 @@ class FriendCollector
   def friends_of(username, current_depth = 0)
     puts "#{'-'*(current_depth+1)} getting friends of #{username}"
 
-    page = Ravelry.site.get "http://www.ravelry.com/people/#{username}/friends/people"
-    friend_links = page.parser.css("#friends_panel .avatar_bubble a")
-
     ravelrite = Ravelrite.find_or_initialize(username)
     ravelrite.name = username
+    ravelrite.processing_friends = true
 
+    page = Ravelry.site.get "http://www.ravelry.com/people/#{username}/friends/people"
+    friend_links = page.parser.css("#friends_panel .avatar_bubble a")
 
     friend_links.each do |friend_link|
       name = friend_link["href"].gsub("/people/","")
@@ -96,8 +98,11 @@ class FriendCollector
 
       ravelrite.friends << friend
 
-      # RECURSION ZONE
-      friends_of(friend.name, current_depth + 1) if current_depth < search_depth
+      # -- RECURSION ZONE -- #
+      # Outer recursion already looping over this person
+      unless friend.processing_friends
+        friends_of(friend.name, current_depth + 1) if current_depth < search_depth
+      end
     end
   end
 
